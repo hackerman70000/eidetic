@@ -22,7 +22,7 @@ dependencies = [
 [project.optional-dependencies]
 diffusion = [
     "diffusers>=0.27",
-    "transformers>=4.40",
+    "transformers>=4.50",
     "accelerate>=0.30",
     "datasets>=2.18",
 ]
