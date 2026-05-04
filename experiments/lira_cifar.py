@@ -25,20 +25,38 @@ def main() -> None:
     parser.add_argument("--n-mc", type=int, default=20)
     parser.add_argument("--use-flip", action="store_true")
     parser.add_argument("--data-root", type=Path, default=Path("data"))
+    parser.add_argument(
+        "--limit",
+        type=int,
+        default=None,
+        help="Score only the first N CIFAR samples (smoke runs).",
+    )
+    parser.add_argument(
+        "--device",
+        default="auto",
+        help="cuda / cpu / auto (default).",
+    )
     args = parser.parse_args()
 
     args.out.mkdir(parents=True, exist_ok=True)
 
+    from eidetic.mia.base import auc_log_log, tpr_at_fpr
     from eidetic.mia.lira import LiRAAttack, LiRADistributions
     from eidetic.mia.strong_lira import horizontal_flip
     from eidetic.models.ddpm import DDPMConfig, build_scheduler, build_unet, diffusion_loss
+
+    if args.device == "auto":
+        device = "cuda" if torch.cuda.is_available() else "cpu"
+    else:
+        device = args.device
 
     transform = transforms.Compose([transforms.ToTensor()])
     cifar = datasets.CIFAR10(
         root=str(args.data_root), train=True, download=True, transform=transform
     )
     images = torch.stack([img for img, _ in cifar])
-    n_total = images.shape[0]
+    n_total = images.shape[0] if args.limit is None else min(args.limit, images.shape[0])
+    logger.info(f"scoring {n_total} CIFAR samples on {device}")
 
     shadow_files = sorted(args.shadow_dir.glob("shadow_*.pt"))
     if not shadow_files:
@@ -50,18 +68,22 @@ def main() -> None:
 
     for shadow_idx, ckpt_path in enumerate(shadow_files):
         logger.info(f"scoring with {ckpt_path.name}")
-        ckpt = torch.load(ckpt_path, map_location="cpu", weights_only=False)
-        unet = build_unet(config)
+        ckpt = torch.load(ckpt_path, map_location=device, weights_only=False)
+        unet = build_unet(config).to(device)
         unet.load_state_dict(ckpt["unet"])
         unet.eval()
         scheduler = build_scheduler(config)
 
         in_mask = np.array(ckpt["in_mask"], dtype=bool)
         for i in range(n_total):
-            sample = images[i]
+            sample = images[i].to(device)
             losses = []
-            for view in (sample, horizontal_flip(sample.numpy())) if args.use_flip else (sample,):
-                view_tensor = view if isinstance(view, torch.Tensor) else torch.from_numpy(view)
+            for view in (
+                (sample, horizontal_flip(sample.cpu().numpy())) if args.use_flip else (sample,)
+            ):
+                view_tensor = (
+                    view if isinstance(view, torch.Tensor) else torch.from_numpy(view).to(device)
+                )
                 for _ in range(args.n_mc):
                     losses.append(
                         diffusion_loss(view_tensor, unet, scheduler, timestep=args.timestep)
@@ -89,6 +111,11 @@ def main() -> None:
     logger.info(
         f"computed {len(member_scores)} member and {len(nonmember_scores)} non-member scores"
     )
+
+    if member_scores and nonmember_scores:
+        auc = auc_log_log(member_scores, nonmember_scores)
+        tpr_1 = tpr_at_fpr(member_scores, nonmember_scores, target_fpr=0.01)
+        logger.info(f"AUC = {auc:.4f}    TPR @ FPR=1% = {tpr_1:.4f}")
 
 
 if __name__ == "__main__":
