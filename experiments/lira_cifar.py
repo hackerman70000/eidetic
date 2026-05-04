@@ -97,9 +97,17 @@ def main() -> None:
     distributions = LiRADistributions.fit(in_losses, out_losses)
     attack = LiRAAttack(distributions=distributions)
 
+    valid = ~(np.isnan(distributions.in_mean) | np.isnan(distributions.out_mean))
+    logger.info(
+        f"{int(valid.sum())}/{n_total} samples observed in both IN and OUT — "
+        f"only these get scored (LiRA needs both distributions per sample)"
+    )
+
     member_scores: list[float] = []
     nonmember_scores: list[float] = []
     for i in range(n_total):
+        if not valid[i]:
+            continue
         for shadow_idx in range(len(shadow_files)):
             if not np.isnan(in_losses[i, shadow_idx]):
                 member_scores.append(attack.score(in_losses[i, shadow_idx], sample_index=i))
