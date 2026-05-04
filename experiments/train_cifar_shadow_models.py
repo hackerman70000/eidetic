@@ -45,7 +45,17 @@ def main() -> None:
     membership_log: list[dict] = []
 
     for shadow_id in range(args.n_shadows):
+        ckpt_path = args.output_dir / f"shadow_{shadow_id}.pt"
+        # Per-shadow split is deterministic given the seed; advance rng once
+        # whether or not we reuse a cached checkpoint so subsequent shadow ids
+        # see the same membership masks across runs.
         in_idx = rng.choice(n_total, size=n_total // 2, replace=False)
+
+        if ckpt_path.exists():
+            logger.info(f"shadow_{shadow_id}.pt exists — skipping training.")
+            membership_log.append({"shadow_id": shadow_id, "checkpoint": str(ckpt_path)})
+            continue
+
         in_mask = np.zeros(n_total, dtype=bool)
         in_mask[in_idx] = True
 
@@ -58,7 +68,6 @@ def main() -> None:
             learning_rate=args.learning_rate,
         )
 
-        ckpt_path = args.output_dir / f"shadow_{shadow_id}.pt"
         torch.save(
             {
                 "shadow_id": shadow_id,
