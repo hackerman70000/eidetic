@@ -33,6 +33,7 @@ dev = [
     "mypy>=1.10",
     "pre-commit>=3.7",
 ]
+plotting = ["matplotlib>=3.7"]
 
 [project.scripts]
 eidetic = "eidetic.cli.main:app"
@@ -57,6 +58,7 @@ ignore = ["PLR0913", "PLR2004"]
 "tests/*" = ["PLR2004", "PLC0415"]
 "experiments/*" = ["T201", "PLC0415", "PLR0912", "PLR0915"]
 "src/eidetic/cli/*" = ["B008"]
+"src/eidetic/utils/plotting.py" = ["PLC0415"]
 
 [tool.mypy]
 python_version = "3.11"
