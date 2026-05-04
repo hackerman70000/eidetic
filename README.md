@@ -58,6 +58,31 @@ eidetic check-memorization path/to/samples.npz --threshold 0.15 --clique-size 10
 eidetic mia-summary results/lira/member_scores.npy results/lira/nonmember_scores.npy --target-fpr 0.01
 ```
 
+## Live test
+
+End-to-end smoke on a single GPU box:
+
+1. `experiments/train_cifar_shadow_models.py --n-shadows 2 --n-steps 5000`
+   — two undertrained DDPMs, ~30 min total.
+2. `experiments/lira_cifar.py --use-flip --n-mc 5 --limit 500`
+   — fits IN/OUT Gaussians and scores 500 CIFAR samples.
+
+| Stage              | Result                      |
+|--------------------|-----------------------------|
+| Shadow training    | converges (loss 1.08 → 0.03)|
+| 4-image sampling   | shape (32, 32, 3), pixel range [0.59, 0.95] |
+| Valid sample mask  | 259/500 observed in both IN and OUT |
+| LiRA scoring       | 259 member / 259 non-member scores produced |
+| AUC / TPR @ FPR=1% | 1.000 / 1.000 (degenerate — see note) |
+
+Note: with only 2 shadows each "valid" sample has exactly one IN
+loss and one OUT loss. The per-sample Gaussian fit collapses to a
+delta peaked at the single observation, so scoring that very same
+loss against it is trivially perfect. This is the reason the paper
+trains 16 shadows: every sample needs ≥ 4 observations on each side
+for the Gaussian to carry meaningful variance. Pipeline is functional;
+real numerical match requires the full shadow set.
+
 ## Layout
 
 ```
