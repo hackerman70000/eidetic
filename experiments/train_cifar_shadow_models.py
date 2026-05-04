@@ -63,7 +63,7 @@ def main() -> None:
             {
                 "shadow_id": shadow_id,
                 "unet": unet.state_dict(),
-                "scheduler_config": scheduler.config,
+                "scheduler_config": dict(scheduler.config),
                 "in_mask": in_mask.tolist(),
                 "config": vars(config),
             },

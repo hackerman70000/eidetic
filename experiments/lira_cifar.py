@@ -50,7 +50,7 @@ def main() -> None:
 
     for shadow_idx, ckpt_path in enumerate(shadow_files):
         logger.info(f"scoring with {ckpt_path.name}")
-        ckpt = torch.load(ckpt_path, map_location="cpu")
+        ckpt = torch.load(ckpt_path, map_location="cpu", weights_only=False)
         unet = build_unet(config)
         unet.load_state_dict(ckpt["unet"])
         unet.eval()

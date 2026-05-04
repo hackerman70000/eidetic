@@ -27,7 +27,7 @@ def main() -> None:
 
     from eidetic.models.ddpm import DDPMConfig, DDPMSampler, build_scheduler, build_unet
 
-    ckpt = torch.load(args.checkpoint, map_location="cpu")
+    ckpt = torch.load(args.checkpoint, map_location="cpu", weights_only=False)
     config = DDPMConfig()
     unet = build_unet(config)
     unet.load_state_dict(ckpt["unet"])
